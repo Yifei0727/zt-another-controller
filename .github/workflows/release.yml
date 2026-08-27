@@ -81,11 +81,14 @@ jobs:
           else
             cargo build --release --target ${{ matrix.target }}
           fi
+          # 重命名为唯一产物名，避免 release 阶段 flatten 时同名二进制互相覆盖
+          mkdir -p /tmp/out
+          cp "${{ matrix.binary }}" "/tmp/out/${{ matrix.artifact }}"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.binary }}
+          path: /tmp/out/${{ matrix.artifact }}
 
   # ---- 打 tag 时汇总产物并创建 Release ----
   release:
