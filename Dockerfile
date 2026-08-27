@@ -23,7 +23,6 @@ WORKDIR /build/be
 COPY zt-console-backend/ ./
 COPY --from=frontend /frontend-dist ./frontend-dist
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/build/be/target \
     cargo build --release --target x86_64-unknown-linux-musl
 
 FROM scratch

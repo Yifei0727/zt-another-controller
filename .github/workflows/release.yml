@@ -88,13 +88,15 @@ jobs:
             cargo build --manifest-path zt-console-backend/Cargo.toml --release --target ${{ matrix.target }}
           fi
           # 重命名为唯一产物名，避免 release 阶段 flatten 时同名二进制互相覆盖
-          mkdir -p /tmp/out
-          cp "${{ matrix.binary }}" "/tmp/out/${{ matrix.artifact }}"
+          # 注意：用工作区相对路径 out/ 而非 /tmp/out —— upload-artifact 是 Node 动作，
+          # Windows 上无法解析 git-bash 的虚拟 /tmp 路径，会导致「No files found」。
+          mkdir -p out
+          cp "${{ matrix.binary }}" "out/${{ matrix.artifact }}"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: /tmp/out/${{ matrix.artifact }}
+          path: out/${{ matrix.artifact }}
 
   # ---- 打 tag 时汇总产物并创建 Release ----
   release:
