@@ -71,15 +71,21 @@ jobs:
       - name: Install zig + cargo-zigbuild (aarch64 musl)
         if: ${{ matrix.zig }}
         run: |
-          sudo apt-get update && sudo apt-get install -y zig
+          # ubuntu-24.04 默认源没有 zig 包，改用官方 tarball 安装
+          ZIG_VER=0.13.0
+          curl -sSL "https://ziglang.org/download/${ZIG_VER}/zig-linux-x86_64-${ZIG_VER}.tar.xz" -o zig.tar.xz
+          tar -xf zig.tar.xz
+          sudo mv "zig-linux-x86_64-${ZIG_VER}" /opt/zig
+          echo "/opt/zig" >> "$GITHUB_PATH"
           cargo install cargo-zigbuild --locked
       - name: Build
+        shell: bash
         run: |
-          cd zt-console-backend
+          # 不 cd，用 --manifest-path 保证 matrix.binary 路径（相对仓库根）正确
           if [ "${{ matrix.zig }}" = "true" ]; then
-            cargo zigbuild --release --target ${{ matrix.target }}
+            cargo zigbuild --manifest-path zt-console-backend/Cargo.toml --release --target ${{ matrix.target }}
           else
-            cargo build --release --target ${{ matrix.target }}
+            cargo build --manifest-path zt-console-backend/Cargo.toml --release --target ${{ matrix.target }}
           fi
           # 重命名为唯一产物名，避免 release 阶段 flatten 时同名二进制互相覆盖
           mkdir -p /tmp/out
