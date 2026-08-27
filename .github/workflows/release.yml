@@ -1,0 +1,109 @@
+name: Release
+
+# 在打 tag（v*）或手动触发时，交叉编译 4 个目标平台的二进制，
+# 并在打 tag 时自动创建 GitHub Release 并附上产物。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ---- 前端：构建 React 产物，作为 artifact 供后端内嵌 ----
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build frontend
+        working-directory: zt-member-ui
+        run: |
+          npm ci
+          npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: zt-member-ui/dist
+
+  # ---- 后端：矩阵交叉编译 4 个目标 ----
+  build:
+    needs: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: zt-console-windows-amd64.exe
+            binary: zt-console-backend/target/x86_64-pc-windows-msvc/release/zt-console-backend.exe
+          - target: aarch64-apple-darwin
+            os: macos-14
+            artifact: zt-console-macos-aarch64
+            binary: zt-console-backend/target/aarch64-apple-darwin/release/zt-console-backend
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            artifact: zt-console-linux-musl-x86_64
+            binary: zt-console-backend/target/x86_64-unknown-linux-musl/release/zt-console-backend
+            musl: true
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            artifact: zt-console-linux-musl-aarch64
+            binary: zt-console-backend/target/aarch64-unknown-linux-musl/release/zt-console-backend
+            zig: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: zt-console-backend/frontend-dist
+      - name: Install Rust toolchain + target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install musl-tools (x86_64 musl)
+        if: ${{ matrix.musl }}
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Install zig + cargo-zigbuild (aarch64 musl)
+        if: ${{ matrix.zig }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y zig
+          cargo install cargo-zigbuild --locked
+      - name: Build
+        run: |
+          cd zt-console-backend
+          if [ "${{ matrix.zig }}" = "true" ]; then
+            cargo zigbuild --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.binary }}
+
+  # ---- 打 tag 时汇总产物并创建 Release ----
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+      - name: Stage assets
+        run: |
+          mkdir -p dist
+          find artifacts -type f -exec cp {} dist/ \;
+          ls -la dist
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

@@ -1,0 +1,22 @@
+# ----- 构建产物 -----
+**/target
+**/node_modules
+**/dist
+**/frontend-dist
+dist
+artifacts
+
+# ----- 运行时数据 / 密钥 -----
+**/data
+**/.env
+*.tmp
+
+# ----- 编辑器 / 系统 -----
+.DS_Store
+*.log
+
+# ----- WorkBuddy 内部目录（含本地记忆，勿提交） -----
+.workbuddy
+
+# TypeScript 增量构建信息
+*.tsbuildinfo

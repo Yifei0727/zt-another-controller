@@ -1,0 +1,45 @@
+# ZeroTier 自建控制器管理控制台 —— Docker Compose 部署
+#
+# ⚠️ 安全要点（务必读完）：
+#   1. 端口只绑定到「指定管理网 IP」，绝不写成 0.0.0.0:3000:3000 暴露公网。
+#      默认绑定 127.0.0.1（仅本机可访问）。部署时把左侧 IP 改为你的管理网 IP，例如：
+#         ZT_HOST=10.0.1.20 docker compose up -d
+#      -p xx.xx.xx.xx:3000:3000 就是这个意思，不能留 0.0.0.0。
+#   2. 控制器密钥从宿主机挂载的 authtoken.secret（只读）读取，不写进任何
+#      env / compose 文件，无需设置 ZT_TOKEN。
+#   3. 控制器地址默认走 host.docker.internal:9993（宿主机上的 ZT 服务）。
+
+services:
+  zt-console:
+    image: zt-console:latest
+    build:
+      context: .                       # 工作区根：同时包含 zt-member-ui 与 zt-console-backend
+      dockerfile: zt-console-backend/Dockerfile
+    container_name: zt-console
+    restart: unless-stopped
+
+    # 端口映射：绑定到指定 IP（默认仅本机 127.0.0.1）。改 ZT_HOST 暴露到管理网，不要留 0.0.0.0。
+    ports:
+      - "${ZT_HOST:-127.0.0.1}:3000:3000"
+
+    volumes:
+      # 宿主机 ZT 控制器的 authtoken.secret 映射进容器（只读），作为 ZT_TOKEN 来源
+      - /var/lib/zerotier-one/authtoken.secret:/var/lib/zerotier-one/authtoken.secret:ro
+      # 持久化管理员凭据（默认 admin/admin，请登录后立即在「设置」里改密码）
+      - zt-console-data:/data
+
+    environment:
+      # 控制器地址：容器视角下宿主机上的 ZT 控制器（:9993 是 ZT 本地 JSON API）
+      ZT_CONTROLLER_URL: http://host.docker.internal:9993
+      # 未设置 ZT_TOKEN 时，默认读取已挂载的 /var/lib/zerotier-one/authtoken.secret。
+      # 若改用 env 注入密钥：另设 ZT_TOKEN=<token>（见 main.rs）。
+      DATA_DIR: /data
+      PORT: "3000"
+
+    # 让容器通过 host.docker.internal 访问宿主机服务
+    # （Linux 必需；macOS / Windows 的 Docker Desktop 原生已支持，此条无害）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  zt-console-data:

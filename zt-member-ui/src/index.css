@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: #f2f2f7;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  /* 轻量液态玻璃：渐变壁纸 + 玻璃浮层，避免昂贵的 SVG 位移滤镜。整体压暗 8%（环境光），点亮区单独加强。 */
+  .app-bg {
+    background:
+      radial-gradient(120% 80% at 0% 0%, rgba(120, 160, 255, 0.16), transparent 55%),
+      radial-gradient(120% 80% at 100% 0%, rgba(255, 150, 200, 0.14), transparent 55%),
+      linear-gradient(160deg, #dbdfeb 0%, #dfdfe3 45%, #e9dbe1 100%);
+  }
+  .glass {
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0) 100%),
+      rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset, 0 10px 30px rgba(31, 38, 88, 0.08);
+  }
+  .glass-strong {
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.2) 45%, rgba(255, 255, 255, 0) 100%),
+      rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(30px) saturate(200%);
+    -webkit-backdrop-filter: blur(30px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 20px 50px rgba(31, 38, 88, 0.12);
+  }
+}
