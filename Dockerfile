@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ============================================================================
-# 多阶段构建，用于发布到 ghcr.io/yifei0727/zt-another-contoller
+# 多阶段构建，用于发布到 ghcr.io/yifei0727/zt-another-controller
 #   Stage 1  frontend : 构建 React 前端 (zt-member-ui) -> dist
 #   Stage 2  backend  : 编译静态 musl 后端 (zt-console-backend)，rust-embed 内嵌前端
 #   Stage 3  runtime  : 极简 scratch 镜像

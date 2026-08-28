@@ -1,6 +1,6 @@
 name: Docker
 
-# 在打 tag（v*）或手动触发时，构建镜像并推送到 ghcr.io/yifei0727/zt-another-contoller。
+# 在打 tag（v*）或手动触发时，构建镜像并推送到 ghcr.io/yifei0727/zt-another-controller。
 on:
   push:
     tags: ["v*"]
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  IMAGE: ghcr.io/yifei0727/zt-another-contoller
+  IMAGE: ghcr.io/yifei0727/zt-another-controller
 
 jobs:
   docker:

@@ -1,9 +1,9 @@
-# zt-another-contoller
+# zt-another-controller
 
 一个自托管的 ZeroTier 控制器（zerotier-one）管理控制台。后端用 Rust（axum）反向代理宿主机
 ZeroTier 控制器的本地 JSON API，前端用 React + TypeScript（液态玻璃风）呈现成员 / 网络管理界面。
 
-> 仓库名 `zt-another-contoller`（沿用约定拼写）。
+> 仓库名 `zt-another-controller`。
 
 ## 功能
 
@@ -49,10 +49,10 @@ docker run -d --name zt-console \
 
 ### 预构建镜像
 
-CI 会把镜像推送到 `ghcr.io/yifei0727/zt-another-contoller`：
+CI 会把镜像推送到 `ghcr.io/yifei0727/zt-another-controller`：
 
 ```bash
-docker pull ghcr.io/yifei0727/zt-another-contoller:latest
+docker pull ghcr.io/yifei0727/zt-another-controller:latest
 ```
 
 ## 从源码构建
@@ -96,7 +96,7 @@ cargo build --release --target x86_64-unknown-linux-musl
 - `.github/workflows/release.yml`：打 `v*` tag（或手动）时交叉编译
   `windows/amd64`、`macos/aarch64`、`linux-musl/{x86_64,aarch64}` 四个二进制，并创建 GitHub Release。
 - `.github/workflows/docker.yml`：打 `v*` tag（或手动）时构建镜像并推送到
-  `ghcr.io/yifei0727/zt-another-contoller`。
+  `ghcr.io/yifei0727/zt-another-controller`。
 
 ## API 概览
 
