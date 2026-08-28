@@ -1,33 +1,23 @@
 # syntax=docker/dockerfile:1
 # ============================================================================
-# 多阶段构建，用于发布到 ghcr.io/yifei0727/zt-another-controller
-#   Stage 1  frontend : 构建 React 前端 (zt-member-ui) -> dist
-#   Stage 2  backend  : 编译静态 musl 后端 (zt-console-backend)，rust-embed 内嵌前端
-#   Stage 3  runtime  : 极简 scratch 镜像
-# 也可在本地直接 `docker build -t zt-console .` 从源码构建。
+# 单文件二进制镜像：Release CI 已交叉编译好 linux/musl 二进制并内嵌前端。
+# 本 Dockerfile 根据 TARGETARCH 选择对应二进制，放入 scratch 镜像。
+# 支持：linux/amd64、linux/arm64
 # ============================================================================
 
-FROM node:20-slim AS frontend
-WORKDIR /build/zm
-COPY zt-member-ui/package.json zt-member-ui/package-lock.json* ./
-RUN npm ci
-COPY zt-member-ui/ ./
-RUN npm run build && cp -r dist /frontend-dist
-
-FROM rust:1-slim AS backend
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends musl-tools \
-    && rm -rf /var/lib/apt/lists/* \
-    && rustup target add x86_64-unknown-linux-musl
-WORKDIR /build/be
-COPY zt-console-backend/ ./
-COPY --from=frontend /frontend-dist ./frontend-dist
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    cargo build --release --target x86_64-unknown-linux-musl
+FROM alpine:latest AS selector
+ARG TARGETARCH
+WORKDIR /bins
+COPY dist/ ./
+RUN case "$TARGETARCH" in \
+      amd64) cp zt-console-linux-musl-x86_64 /zt-console-backend ;; \
+      arm64) cp zt-console-linux-musl-aarch64 /zt-console-backend ;; \
+      *) echo "Unsupported architecture: $TARGETARCH"; exit 1 ;; \
+    esac && chmod +x /zt-console-backend
 
 FROM scratch
 WORKDIR /
-COPY --from=backend /build/be/target/x86_64-unknown-linux-musl/release/zt-console-backend /zt-console-backend
+COPY --from=selector /zt-console-backend /zt-console-backend
 VOLUME ["/data"]
 ENV DATA_DIR=/data
 ENV ZT_CONTROLLER_URL=http://host.docker.internal:9993
