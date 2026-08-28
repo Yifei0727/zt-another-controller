@@ -43,5 +43,9 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Yifei0727/zt-another-controller
+            org.opencontainers.image.description=ZeroTier 自建控制器控制台（Rust axum + React 前端，单文件二进制）
+            org.opencontainers.image.licenses=MIT
           cache-from: type=gha
           cache-to: type=gha,mode=max
