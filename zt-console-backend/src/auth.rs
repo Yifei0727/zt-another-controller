@@ -352,34 +352,47 @@ impl AuthState {
         }
     }
 
-    fn save_users(&self) -> std::io::Result<()> {
-        let u = self.users.lock().unwrap();
-        atomic_write(&self.users_path, &UsersFile { users: u.clone() })
+    /// 写入 users.json。**调用方须已持有 `users` 锁并传入 guard 引用**；
+    /// 这里不再自行加锁，否则会与调用方形成可重入死锁（std::sync::Mutex 非可重入，
+    /// 同一线程重复 lock 会永久阻塞该 tokio 工作线程，导致服务静默卡死）。
+    fn save_users(&self, users: &Vec<User>) -> std::io::Result<()> {
+        atomic_write(&self.users_path, &UsersFile { users: users.clone() })
     }
 
-    fn save_keys(&self) -> std::io::Result<()> {
-        let k = self.keys.lock().unwrap();
-        atomic_write(&self.keys_path, &KeysFile { keys: k.clone() })
+    /// 同 save_users，针对 apikeys.json。
+    fn save_keys(&self, keys: &Vec<ApiKey>) -> std::io::Result<()> {
+        atomic_write(&self.keys_path, &KeysFile { keys: keys.clone() })
     }
 
     pub fn login(&self, user: &str, pass: &str) -> Option<(String, bool)> {
-        let mut users = self.users.lock().unwrap();
-        let u = users
-            .iter_mut()
-            .find(|u| u.username == user && u.status == "active")?;
-        let matched = verify_pass(&u.pass_hash, pass)?;
-        if matched {
-            // legacy 格式惰性升级为新格式。
-            u.pass_hash = pbkdf2_hash(pass);
-            let _ = self.save_users();
+        // 锁内只做校验/升级，记录是否需回写与 must_change，随后释放锁再 save，
+        // 避免 save_users 再次加同一把锁导致可重入死锁。
+        let (need_upgrade, must_change) = {
+            let mut users = self.users.lock().unwrap();
+            let u = users
+                .iter_mut()
+                .find(|u| u.username == user && u.status == "active")?;
+            let matched = verify_pass(&u.pass_hash, pass)?;
+            let mc = u.must_change;
+            if matched {
+                // legacy 格式惰性升级为新格式。
+                u.pass_hash = pbkdf2_hash(pass);
+                (true, mc)
+            } else {
+                (false, mc)
+            }
+        };
+        if need_upgrade {
+            let users = self.users.lock().unwrap();
+            let _ = self.save_users(&users);
         }
         let token = random_token();
         let exp = Instant::now() + Duration::from_secs(60 * 60 * 24 * 7);
         self.sessions
             .lock()
             .unwrap()
-            .insert(token.clone(), (u.username.clone(), exp));
-        Some((token, u.must_change))
+            .insert(token.clone(), (user.to_string(), exp));
+        Some((token, must_change))
     }
 
     /// 当前会话对应的用户（用于 /me、记录 created_by）。
@@ -430,7 +443,8 @@ impl AuthState {
         }
         u.pass_hash = pbkdf2_hash(new);
         u.must_change = false;
-        if self.save_users().is_err() {
+        // 仍持有 users 锁；save_users 不再自行加锁，直接传入 guard。
+        if self.save_users(&users).is_err() {
             return false;
         }
         // 改密后使其它会话失效，但保留执行改密的会话。
@@ -444,13 +458,12 @@ impl AuthState {
         if self.valid(token) {
             return true;
         }
+        let hash = sha256_hex(token);
         let mut ks = self.keys.lock().unwrap();
-        if let Some(k) = ks
-            .iter_mut()
-            .find(|k| k.status == "active" && k.hash == sha256_hex(token))
-        {
+        if let Some(k) = ks.iter_mut().find(|k| k.status == "active" && k.hash == hash) {
             k.last_used_at = Some(now_secs());
-            let _ = self.save_keys();
+            // 仍持有 keys 锁；save_keys 不再自行加锁，传入 guard。
+            let _ = self.save_keys(&ks);
             true
         } else {
             false
@@ -483,7 +496,7 @@ impl AuthState {
         };
         let mut ks = self.keys.lock().unwrap();
         ks.push(api_key);
-        let _ = self.save_keys();
+        let _ = self.save_keys(&ks);
         Some(ApiKeyIssued {
             id,
             name,
@@ -519,7 +532,7 @@ impl AuthState {
         if let Some(k) = ks.iter_mut().find(|k| k.id == id && k.status == "active") {
             k.status = "disabled".to_string();
             k.expires_at = Some(now_secs());
-            let _ = self.save_keys();
+            let _ = self.save_keys(&ks);
             true
         } else {
             false
