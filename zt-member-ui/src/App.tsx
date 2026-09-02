@@ -186,7 +186,12 @@ export default function App() {
     const base = members.filter((m) => (authFilter === 'unauth' ? !m.authorized : m.authorized))
     const q = search.trim().toLowerCase()
     if (!q) return base
-    return base.filter((m) => m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q))
+    return base.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.id.toLowerCase().includes(q) ||
+        (m.version || '').toLowerCase().includes(q),
+    )
   }, [members, authFilter, search])
   const pending = useMemo(
     () => sortMembers(visible.filter((m) => memberGroup(m) === 'pending'), sortKey),

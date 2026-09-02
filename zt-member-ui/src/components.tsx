@@ -87,6 +87,7 @@ export function SortMenu({
     name: '按名称',
     status: '按状态',
     lastSeen: '按最近活跃',
+    version: '按版本',
   }
   return (
     <div className="flex items-center gap-2">
@@ -140,11 +141,12 @@ export function Toggle({
 
 function subLine(m: Member) {
   const g = memberGroup(m)
+  const ver = m.version ? ` · ${m.version}` : ''
   if (g === 'assigned')
-    return <span className="text-sysblue">{m.ipAssignments[0]} · {statusLabel(m.status)}</span>
+    return <span className="text-sysblue">{m.ipAssignments[0]} · {statusLabel(m.status)}{ver}</span>
   if (g === 'pending')
-    return <span className="text-sysorange">待分配 IP · {statusLabel(m.status)}</span>
-  return <span className="text-sysgray">未授权 · {statusLabel(m.status)}</span>
+    return <span className="text-sysorange">待分配 IP · {statusLabel(m.status)}{ver}</span>
+  return <span className="text-sysgray">未授权 · {statusLabel(m.status)}{ver}</span>
 }
 
 export function MemberCard({
@@ -184,6 +186,10 @@ export function MemberCard({
   )
 }
 
+function peerVersionText(m: Member): string {
+  return m.version || '—'
+}
+
 export function MemberTable({
   members,
   selectedId,
@@ -201,13 +207,14 @@ export function MemberTable({
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-separator bg-white">
-      <div className="grid grid-cols-[28px_1.5fr_1.2fr_0.9fr_1fr] items-center px-3.5 py-2 bg-[#FAFAFC] text-[12px] text-sysgray border-b border-separator">
+      <div className="grid grid-cols-[28px_1.4fr_1.1fr_0.8fr_0.9fr_1fr] items-center px-3.5 py-2 bg-[#FAFAFC] text-[12px] text-sysgray border-b border-separator">
         <span />
         <span>名称</span>
         <button onClick={onSortIp} className={sortKey === 'ip' ? 'text-sysblue font-medium text-left' : 'text-left'}>
           IP 地址 {sortKey === 'ip' ? '↓' : ''}
         </button>
         <span>状态</span>
+        <span>版本</span>
         <span>最近活跃</span>
       </div>
       {members.map((m) => {
@@ -217,7 +224,7 @@ export function MemberTable({
           <div
             key={m.id}
             onClick={() => onSelect(m)}
-            className={`grid grid-cols-[28px_1.5fr_1.2fr_0.9fr_1fr] items-center px-3.5 py-2.5 text-[13px] border-b border-[#F2F2F7] cursor-pointer ${
+            className={`grid grid-cols-[28px_1.4fr_1.1fr_0.8fr_0.9fr_1fr] items-center px-3.5 py-2.5 text-[13px] border-b border-[#F2F2F7] cursor-pointer ${
               selectedId === m.id ? 'bg-[#EAF3FF]' : ''
             }`}
           >
@@ -237,6 +244,7 @@ export function MemberTable({
               {g === 'assigned' ? m.ipAssignments[0] : g === 'pending' ? '待分配 IP' : '—'}
             </span>
             <span>{statusLabel(m.status)}</span>
+            <span className="text-sysgray">{peerVersionText(m)}</span>
             <span className="text-sysgray">
               {m.status === 'offline' ? '离线' : timeAgo(m.lastSeen)}
             </span>
@@ -391,6 +399,9 @@ export function MemberDetail({
         </Row>
         <Row label="授权">
           <Toggle on={m.authorized} onChange={onToggleAuth} />
+        </Row>
+        <Row label="客户端版本">
+          <span className="text-sysgray">{m.version || '—'}</span>
         </Row>
         <Row label="最近活跃">
           <span className="text-sysgray">{timeAgo(m.lastSeen)}</span>

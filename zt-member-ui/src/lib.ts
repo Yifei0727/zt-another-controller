@@ -9,10 +9,11 @@ export interface Member {
   autoAssign: boolean // 成员级自动分配开关（UI 偏好，控制器无此字段）
   status: PeerStatus // derived from /peer
   lastSeen: number // epoch ms
+  version: string // ZeroTier client version, e.g. '1.12.2'
 }
 
 export type AuthFilter = 'unauth' | 'auth'
-export type SortKey = 'ip' | 'name' | 'status' | 'lastSeen'
+export type SortKey = 'ip' | 'name' | 'status' | 'lastSeen' | 'version'
 
 export function ipToNumber(ip?: string): number {
   if (!ip) return Number.MAX_SAFE_INTEGER // no ip -> sorts last
@@ -54,6 +55,13 @@ export function sortMembers(list: Member[], key: SortKey, asc = true): Member[] 
     if (key === 'ip') r = ipToNumber(a.ipAssignments[0]) - ipToNumber(b.ipAssignments[0])
     else if (key === 'name') r = a.name.localeCompare(b.name, 'zh')
     else if (key === 'status') r = a.status.localeCompare(b.status)
+    else if (key === 'version') {
+      const av = (a.version || '').trim()
+      const bv = (b.version || '').trim()
+      r = av.localeCompare(bv, undefined, { numeric: true })
+      if (av === '' && bv !== '') r = 1
+      else if (av !== '' && bv === '') r = -1
+    }
     else r = a.lastSeen - b.lastSeen
     if (r === 0) r = a.name.localeCompare(b.name, 'zh')
     return r * dir
@@ -271,6 +279,7 @@ function mapMember(raw: ZTMemberRaw): Member {
     autoAssign: !(raw.noAutoAssignIps ?? false),
     status: 'offline',
     lastSeen: (raw.lastSeen ?? 0) * 1000,
+    version: '',
   }
 }
 
@@ -301,16 +310,21 @@ export async function fetchMembers(nwid: string): Promise<Member[]> {
 }
 
 // 控制器 /peer 返回所有对等节点；节点在线列表即当前连到控制器的 peer。
-// 真实 peer 对象结构：{ address, paths:[{active, expired, lastReceive(ms), ...}], role, ... }
+// 真实 peer 对象结构：{ address, version, paths:[{active, expired, lastReceive(ms), ...}], role, ... }
 // 注意：peer 对象没有 lastSeen 字段，最近活跃时间取 paths[].lastReceive（毫秒）。
-export async function fetchPeers(): Promise<Record<string, number>> {
+export interface PeerInfo {
+  lastSeen: number // epoch seconds
+  version?: string // ZeroTier client version, e.g. '1.12.2'
+}
+export async function fetchPeers(): Promise<Record<string, PeerInfo>> {
   try {
     const r = await apiFetch('/peer')
     const arr = (await r.json()) as {
       address?: string
+      version?: string
       paths?: { active?: boolean; expired?: boolean; lastReceive?: number }[]
     }[]
-    const map: Record<string, number> = {}
+    const map: Record<string, PeerInfo> = {}
     const nowMs = Date.now()
     for (const p of arr) {
       if (!p.address) continue
@@ -319,7 +333,9 @@ export async function fetchPeers(): Promise<Record<string, number>> {
       const live = paths.some(
         (x) => x.active && !x.expired && (x.lastReceive || 0) > nowMs - 10 * 60 * 1000,
       )
-      if (live) map[p.address] = Math.floor(lastMs / 1000)
+      if (live) {
+        map[p.address] = { lastSeen: Math.floor(lastMs / 1000), version: p.version }
+      }
     }
     return map
   } catch {
@@ -327,12 +343,12 @@ export async function fetchPeers(): Promise<Record<string, number>> {
   }
 }
 
-// peers: 地址 -> 最近活跃时间（秒，来自 /peer 的 lastReceive）。
+// peers: 地址 -> 对端信息（最近活跃秒数 + ZeroTier 客户端版本）。
 // controllerAddress: 控制器节点地址（首个网络 ID 前 10 位）。控制器即本机，
 // 不会出现在自己的 /peer 列表里，需强制判为在线，否则永远显示离线。
 export function withPeerStatus(
   members: Member[],
-  peers: Record<string, number>,
+  peers: Record<string, PeerInfo>,
   controllerAddress = '',
 ): Member[] {
   const nowSec = Math.floor(Date.now() / 1000)
@@ -341,9 +357,15 @@ export function withPeerStatus(
     if (m.id && m.id === controllerAddress) {
       return { ...m, status: 'online' as PeerStatus, lastSeen: Date.now() }
     }
-    const ls = peers[m.id] || 0
+    const info = peers[m.id]
+    const ls = info?.lastSeen || 0
     const online = ls > 0 && nowSec - ls < 300
-    return { ...m, status: (online ? 'online' : 'offline') as PeerStatus, lastSeen: ls * 1000 }
+    return {
+      ...m,
+      status: (online ? 'online' : 'offline') as PeerStatus,
+      lastSeen: ls * 1000,
+      version: info?.version || '',
+    }
   })
 }
 
