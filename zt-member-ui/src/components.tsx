@@ -198,6 +198,8 @@ export function MemberTable({
   sortKey,
   onSortIp,
   controllerAddress,
+  groupLabels = false,
+  emptyText = '暂无终端',
 }: {
   members: Member[]
   selectedId?: string
@@ -205,10 +207,53 @@ export function MemberTable({
   sortKey: SortKey
   onSortIp: () => void
   controllerAddress?: string
+  /** 已认证视图：在「待分配 IP」与「已分配 IP」之间插入分组标题行 */
+  groupLabels?: boolean
+  emptyText?: string
 }) {
+  const GRID = 'grid grid-cols-[28px_1.4fr_1.1fr_0.8fr_0.9fr_1fr] items-center px-3.5'
+  const pending = groupLabels ? members.filter((m) => memberGroup(m) === 'pending') : []
+  const assigned = groupLabels ? members.filter((m) => memberGroup(m) === 'assigned') : []
+  const rows = groupLabels ? [...pending, ...assigned] : members
+
+  const renderRow = (m: Member) => {
+    const g = memberGroup(m)
+    const isCtl = isControllerMember(m, controllerAddress || '')
+    return (
+      <div
+        key={m.id}
+        onClick={() => onSelect(m)}
+        className={`${GRID} py-2.5 text-[13px] border-b border-[#F2F2F7] cursor-pointer ${
+          selectedId === m.id ? 'bg-[#EAF3FF]' : ''
+        }`}
+      >
+        <span className="text-sysgray">☐</span>
+        <span className="flex items-center gap-2 min-w-0">
+          <StatusDot status={m.status} size={8} />
+          <span className={`truncate ${isNamed(m) ? 'text-black' : 'text-sysgray'} flex items-center gap-1.5`}>
+            {displayName(m)}
+            {isCtl && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#FFF0E0] text-[#FF9500]">
+                控制器
+              </span>
+            )}
+          </span>
+        </span>
+        <span className={g === 'assigned' ? 'text-sysblue' : 'text-sysgray'}>
+          {g === 'assigned' ? m.ipAssignments[0] : g === 'pending' ? '待分配 IP' : '—'}
+        </span>
+        <span>{statusLabel(m.status)}</span>
+        <span className="text-sysgray">{peerVersionText(m)}</span>
+        <span className="text-sysgray">
+          {m.status === 'offline' ? '离线' : timeAgo(m.lastSeen)}
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border border-separator bg-white">
-      <div className="grid grid-cols-[28px_1.4fr_1.1fr_0.8fr_0.9fr_1fr] items-center px-3.5 py-2 bg-[#FAFAFC] text-[12px] text-sysgray border-b border-separator">
+      <div className={`${GRID} py-2 bg-[#FAFAFC] text-[12px] text-sysgray border-b border-separator`}>
         <span />
         <span>名称</span>
         <button onClick={onSortIp} className={sortKey === 'ip' ? 'text-sysblue font-medium text-left' : 'text-left'}>
@@ -218,40 +263,30 @@ export function MemberTable({
         <span>版本</span>
         <span>最近活跃</span>
       </div>
-      {members.map((m) => {
-        const g = memberGroup(m)
-        const isCtl = isControllerMember(m, controllerAddress || '')
-        return (
-          <div
-            key={m.id}
-            onClick={() => onSelect(m)}
-            className={`grid grid-cols-[28px_1.4fr_1.1fr_0.8fr_0.9fr_1fr] items-center px-3.5 py-2.5 text-[13px] border-b border-[#F2F2F7] cursor-pointer ${
-              selectedId === m.id ? 'bg-[#EAF3FF]' : ''
-            }`}
-          >
-            <span className="text-sysgray">☐</span>
-            <span className="flex items-center gap-2 min-w-0">
-              <StatusDot status={m.status} size={8} />
-              <span className={`truncate ${isNamed(m) ? 'text-black' : 'text-sysgray'} flex items-center gap-1.5`}>
-                {displayName(m)}
-                {isCtl && (
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#FFF0E0] text-[#FF9500]">
-                    控制器
-                  </span>
-                )}
-              </span>
-            </span>
-            <span className={g === 'assigned' ? 'text-sysblue' : 'text-sysgray'}>
-              {g === 'assigned' ? m.ipAssignments[0] : g === 'pending' ? '待分配 IP' : '—'}
-            </span>
-            <span>{statusLabel(m.status)}</span>
-            <span className="text-sysgray">{peerVersionText(m)}</span>
-            <span className="text-sysgray">
-              {m.status === 'offline' ? '离线' : timeAgo(m.lastSeen)}
-            </span>
-          </div>
-        )
-      })}
+      {rows.length === 0 ? (
+        <div className="px-3.5 py-10 text-center text-[13px] text-sysgray">{emptyText}</div>
+      ) : groupLabels ? (
+        <>
+          {pending.length > 0 && (
+            <>
+              <div className="px-3.5 py-1.5 bg-[#FAFAFC] text-[12px] text-sysgray font-medium border-b border-[#F2F2F7]">
+                待分配 IP
+              </div>
+              {pending.map(renderRow)}
+            </>
+          )}
+          {assigned.length > 0 && (
+            <>
+              <div className="px-3.5 py-1.5 bg-[#FAFAFC] text-[12px] text-sysgray font-medium border-b border-[#F2F2F7]">
+                已分配 IP
+              </div>
+              {assigned.map(renderRow)}
+            </>
+          )}
+        </>
+      ) : (
+        rows.map(renderRow)
+      )}
     </div>
   )
 }

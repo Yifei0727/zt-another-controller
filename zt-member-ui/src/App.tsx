@@ -464,16 +464,24 @@ export default function App() {
                           </Section>
                         )}
                         <Section title="已分配 IP">
-                          {assigned.map((m) => (
-                            <MemberCard key={m.id} m={m} selected={m.id === selectedId} onClick={() => select(m)} controllerAddress={controller.address} />
-                          ))}
+                          {assigned.length === 0 ? (
+                            <div className="text-sysgray text-[13px] py-3 px-1">暂无已分配 IP 的终端</div>
+                          ) : (
+                            assigned.map((m) => (
+                              <MemberCard key={m.id} m={m} selected={m.id === selectedId} onClick={() => select(m)} controllerAddress={controller.address} />
+                            ))
+                          )}
                         </Section>
                       </>
                     ) : (
                       <Section title="未认证终端">
-                        {unauthList.map((m) => (
-                          <MemberCard key={m.id} m={m} selected={m.id === selectedId} onClick={() => select(m)} controllerAddress={controller.address} />
-                        ))}
+                        {unauthList.length === 0 ? (
+                          <div className="text-sysgray text-[13px] py-3 px-1">当前没有待认证的终端</div>
+                        ) : (
+                          unauthList.map((m) => (
+                            <MemberCard key={m.id} m={m} selected={m.id === selectedId} onClick={() => select(m)} controllerAddress={controller.address} />
+                          ))
+                        )}
                       </Section>
                     )}
                   </div>
@@ -481,7 +489,9 @@ export default function App() {
                   {/* Table (macOS web) */}
                   <div className="hidden lg:block">
                     <MemberTable
-                      members={[...pending, ...assigned]}
+                      members={authFilter === 'auth' ? [...pending, ...assigned] : unauthList}
+                      groupLabels={authFilter === 'auth' && pending.length > 0 && assigned.length > 0}
+                      emptyText={authFilter === 'unauth' ? '当前没有待认证的终端' : '该网络下还没有已认证的终端'}
                       selectedId={selectedId}
                       onSelect={select}
                       sortKey={sortKey}
