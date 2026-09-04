@@ -38,6 +38,7 @@ import {
   NetworkSwitcher,
   LoginGate,
   ChangePasswordSheet,
+  NetworkIdChip,
 } from './components'
 
 type View = 'members' | 'networks' | 'settings'
@@ -92,6 +93,16 @@ export default function App() {
     if (authed) reloadNetworks()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed])
+
+  // 自动轮询：新节点加入 / 上下线无需手动刷新即可呈现（尤其「未认证」分组）。
+  useEffect(() => {
+    if (!authed || !currentNwid) return
+    const t = setInterval(() => {
+      reloadMembers(currentNwid)
+    }, 15000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authed, currentNwid])
 
   async function reloadNetworks() {
     setLoading(true)
@@ -392,17 +403,18 @@ export default function App() {
         ) : (
           <>
             <div className="sticky top-0 z-10 glass px-4 pt-3 pb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <h1 className="text-2xl font-semibold text-black flex-shrink-0">成员</h1>
-                  {isMembers && (
-                    <NetworkSwitcher
-                      networks={networks}
-                      currentNwid={currentNwid}
-                      onSelect={(id) => onSelectNetwork(id)}
-                    />
-                  )}
-                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <h1 className="text-2xl font-semibold text-black flex-shrink-0">成员</h1>
+                    {isMembers && (
+                      <NetworkSwitcher
+                        networks={networks}
+                        currentNwid={currentNwid}
+                        onSelect={(id) => onSelectNetwork(id)}
+                      />
+                    )}
+                    {currentNetwork && <NetworkIdChip nwid={currentNetwork.id} />}
+                  </div>
                 <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-full bg-grouped text-sysgray min-w-0 max-w-[40vw] lg:max-w-[220px]">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
                     <circle cx="11" cy="11" r="7" />

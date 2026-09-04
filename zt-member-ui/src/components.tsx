@@ -18,6 +18,7 @@ import {
   fetchApiKeys,
   createApiKey,
   revokeApiKey,
+  copyText,
 } from './lib'
 
 export function StatusDot({ status, size = 10 }: { status: Member['status']; size?: number }) {
@@ -491,8 +492,16 @@ export function NetworkCard({
             {net.private ? '私有' : '公开'}
           </span>
         </div>
-        <div className="text-[12px] text-sysgray truncate">
-          {net.id} · {count.authorized}/{count.total} 已授权
+        <div className="flex items-center gap-1.5 text-[12px] text-sysgray truncate">
+          <span className="font-mono truncate">{net.id}</span>
+          <button
+            onClick={() => copyText(net.id)}
+            className="text-sysblue flex-shrink-0"
+            aria-label="复制网络 ID"
+          >
+            复制
+          </button>
+          <span className="flex-shrink-0">· {count.authorized}/{count.total} 已授权</span>
         </div>
       </button>
       <button onClick={onManageMembers} className="text-sysblue text-[13px] px-2 py-1 flex-shrink-0">
@@ -1285,5 +1294,27 @@ export function LoginGate({ onLogin }: { onLogin: (user: string, pass: string) =
         <p className="text-center text-[11px] text-sysgray mt-4">用户名 admin · 初始密码见服务首次启动日志</p>
       </form>
     </div>
+  )
+}
+
+// 网络 ID 复制胶囊：成员页头部与网络卡片共用，让客户端明确「加入哪个网络」。
+export function NetworkIdChip({ nwid }: { nwid: string }) {
+  const [copied, setCopied] = useState(false)
+  async function onCopy() {
+    const ok = await copyText(nwid)
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+  }
+  return (
+    <button
+      onClick={onCopy}
+      title="点击复制网络 ID，发给客户端用于加入"
+      className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-grouped text-sysgray text-[12px] max-w-[44vw] flex-shrink-0"
+    >
+      <span className="font-mono truncate">{nwid}</span>
+      <span className="text-sysblue flex-shrink-0">{copied ? '已复制' : '复制'}</span>
+    </button>
   )
 }

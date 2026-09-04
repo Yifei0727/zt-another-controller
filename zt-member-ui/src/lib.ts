@@ -446,3 +446,31 @@ export async function deleteNetworkApi(nwid: string): Promise<void> {
 export async function deleteMemberApi(nwid: string, id: string): Promise<void> {
   await apiFetch(`/network/${nwid}/member/${id}`, { method: 'DELETE' })
 }
+
+// 复制文本到剪贴板；兼容非 HTTPS 部署（navigator.clipboard 需安全上下文，
+// 否则回退到 execCommand）。返回是否成功。
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    /* fall through to legacy path */
+  }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    ta.style.pointerEvents = 'none'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
+}
