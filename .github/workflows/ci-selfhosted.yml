@@ -23,16 +23,8 @@ jobs:
         run: |
           echo "RUSTUP_DIST_SERVER=https://mirrors.tuna.tsinghua.edu.cn/rustup" >> "$GITHUB_ENV"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          # crates.io 直连极慢，Runner 上已配 rsproxy 稀疏索引镜像（~/.cargo/config.toml）
-          mkdir -p "$HOME/.cargo"
-          cat > "$HOME/.cargo/config.toml" <<'CARGO'
-[source.crates-io]
-replace-with = 'rsproxy-sparse'
-[source.rsproxy-sparse]
-registry = "sparse+https://rsproxy.cn/index/"
-[net]
-git-fetch-with-cli = true
-CARGO
+          # crates.io 直连极慢，Runner 用户目录已持久配好 rsproxy 镜像与 rustup 工具链
+          cat "$HOME/.cargo/config.toml"
 
       - name: Setup Node
         uses: actions/setup-node@v4
