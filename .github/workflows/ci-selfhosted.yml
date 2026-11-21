@@ -22,18 +22,11 @@ jobs:
       - name: Rust mirror env
         run: |
           echo "RUSTUP_DIST_SERVER=https://mirrors.tuna.tsinghua.edu.cn/rustup" >> "$GITHUB_ENV"
-          echo "NODEJS_ORG_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/nodejs-release" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_REGISTRY=https://registry.npmmirror.com" >> "$GITHUB_ENV"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           # crates.io 直连极慢，Runner 用户目录已持久配好 rsproxy 镜像与 rustup 工具链
           cat "$HOME/.cargo/config.toml"
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: zt-member-ui/package-lock.json
+          # Node 20 已预装在系统（setup-node 从 GitHub 下载在国内会卡死）
+          node --version && npm --version
 
       - name: Build frontend
         working-directory: zt-member-ui
