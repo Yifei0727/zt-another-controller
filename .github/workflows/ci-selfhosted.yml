@@ -1,0 +1,66 @@
+name: CI (self-hosted)
+
+# 在自己的 Lighthouse 实例（10.88.8.1 / lh-zt-ci）上跑前端 + linux-musl 后端构建。
+# 目的：把闲置 CPU 用起来，省 GitHub 托管分钟数。
+# 仅在手动触发 / 主分支 push 时运行，不参与打 tag 发版（发版仍走 release.yml）。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: [self-hosted, Linux, zt-ci]
+    steps:
+      - uses: actions/checkout@v4
+
+      # 这台机器直连 static.rust-lang.org 极慢（~50KB/s），必须走 TUNA 镜像。
+      # 前置已在 Runner 上装好 rustup + musl target + musl-tools，这里只需 export。
+      - name: Rust mirror env
+        run: |
+          echo "RUSTUP_DIST_SERVER=https://mirrors.tuna.tsinghua.edu.cn/rustup" >> "$GITHUB_ENV"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # crates.io 直连极慢，Runner 上已配 rsproxy 稀疏索引镜像（~/.cargo/config.toml）
+          mkdir -p "$HOME/.cargo"
+          cat > "$HOME/.cargo/config.toml" <<'CARGO'
+[source.crates-io]
+replace-with = 'rsproxy-sparse'
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
+[net]
+git-fetch-with-cli = true
+CARGO
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: zt-member-ui/package-lock.json
+
+      - name: Build frontend
+        working-directory: zt-member-ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Embed frontend into backend
+        run: |
+          rm -rf zt-console-backend/frontend-dist
+          cp -r zt-member-ui/dist zt-console-backend/frontend-dist
+          # rust-embed 在编译期读取资源，touch 强制重编
+          touch zt-console-backend/src/**/*.rs zt-console-backend/src/*.rs 2>/dev/null || true
+
+      - name: Build backend (x86_64 musl)
+        working-directory: zt-console-backend
+        run: |
+          source "$HOME/.cargo/env"
+          cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Report artifact
+        run: |
+          ls -lh zt-console-backend/target/x86_64-unknown-linux-musl/release/zt-console-backend
+          file zt-console-backend/target/x86_64-unknown-linux-musl/release/zt-console-backend
